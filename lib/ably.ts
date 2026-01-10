@@ -1,4 +1,4 @@
-import Ably from 'ably'
+import * as Ably from "ably";
 
 let ablyClient: Ably.Realtime | null = null
 
@@ -15,11 +15,11 @@ export function getAblyClient(): Ably.Realtime {
 export function subscribeToChannel(
   channelName: string,
   callback: (message: Ably.Types.Message) => void
-): Ably.Types.RealtimeChannel {
-  const client = getAblyClient()
-  const channel = client.channels.get(channelName)
-  channel.subscribe('message', callback)
-  return channel
+) {
+  const client = getAblyClient();
+  const channel = client.channels.get(channelName);
+  channel.subscribe("message", callback);
+  return channel;
 }
 
 export function publishToChannel(
