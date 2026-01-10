@@ -1,38 +1,38 @@
-import { NextAuthOptions } from 'next-auth'
-import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
-import { prisma } from './prisma'
-import bcrypt from 'bcryptjs'
+import { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { prisma } from "./prisma";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Invalid credentials')
+          return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        })
+          where: { email: credentials.email },
+        });
 
         if (!user || !user.password) {
-          throw new Error('Invalid credentials')
+          return null;
         }
 
-        const isPasswordValid = await bcrypt.compare(
+        const isValid = await bcrypt.compare(
           credentials.password,
           user.password
-        )
+        );
 
-        if (!isPasswordValid) {
-          throw new Error('Invalid credentials')
+        if (!isValid) {
+          return null;
         }
 
         return {
@@ -42,36 +42,36 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           country: user.country,
           location: user.location,
-        }
-      }
-    })
+        };
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = user.role
-        token.country = user.country
-        token.location = user.location
+        token.id = user.id;
+        token.role = user.role;
+        token.country = user.country;
+        token.location = user.location;
       }
-      return token
+      return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
-        session.user.country = token.country as string
-        session.user.location = token.location as string
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.country = token.country;
+        session.user.location = token.location;
       }
-      return session
-    }
+      return session;
+    },
   },
   pages: {
-    signIn: '/login',
+    signIn: "/login",
   },
   session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
-}
+};
