@@ -1,15 +1,15 @@
 import * as Ably from "ably";
 
-let ablyClient: Ably.Realtime | null = null
+let ablyClient: Ably.Realtime | null = null;
 
 export function getAblyClient(): Ably.Realtime {
   if (!ablyClient) {
     ablyClient = new Ably.Realtime({
       key: process.env.NEXT_PUBLIC_ABLY_KEY!,
-      clientId: 'ngo-client',
-    })
+      clientId: "ngo-client",
+    });
   }
-  return ablyClient
+  return ablyClient;
 }
 
 export function subscribeToChannel(
@@ -22,17 +22,17 @@ export function subscribeToChannel(
   return channel;
 }
 
-export function publishToChannel(
+export async function publishToChannel(
   channelName: string,
-  data: any
+  data: unknown
 ): Promise<void> {
-  const client = getAblyClient()
-  const channel = client.channels.get(channelName)
-  return channel.publish('message', data)
+  const client = getAblyClient();   // ✅ FIXED
+  const channel = client.channels.get(channelName);
+  await channel.publish("message", data);
 }
 
 export function unsubscribeFromChannel(channelName: string): void {
-  const client = getAblyClient()
-  const channel = client.channels.get(channelName)
-  channel.unsubscribe()
+  const client = getAblyClient();
+  const channel = client.channels.get(channelName);
+  channel.unsubscribe();
 }
