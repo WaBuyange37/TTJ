@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  FOUNDER
+  COUNTRY_DIRECTOR
+  SOCIAL_WORKER
+}
+
+enum RequestStatus {
+  PENDING_DIRECTOR
+  APPROVED_BY_DIRECTOR
+  REJECTED_BY_DIRECTOR
+  PENDING_FOUNDERS
+  APPROVED_BY_FOUNDERS
+  REJECTED_BY_FOUNDERS
+  COMPLETED
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncomeCategory {
+  MONTHLY_BUDGET
+  DONOR_GIFT
+  OTHER
+}
+
+enum ExpenseCategory {
+  RENT
+  FOOD
+  SCHOOL
+  HEALTH
+  TRANSPORT
+  UTILITIES
+  EMERGENCY
+  OTHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String
+  role          UserRole
+  country       String?
+  location      String?
+  phone         String?
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  sentMessages       Message[]          @relation("SentMessages")
+  emergencyRequests  EmergencyRequest[]
+  incomes           Income[]
+  expenses          Expense[]
+  auditLogs         AuditLog[]
+  posts             Post[]
+  
+  @@map("users")
+}
+
+model Income {
+  id          String         @id @default(cuid())
+  amount      Float
+  date        DateTime       @default(now())
+  description String
+  sender      String         // Which founder sent
+  category    IncomeCategory @default(MONTHLY_BUDGET)
+  addedById   String
+  addedBy     User           @relation(fields: [addedById], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  @@map("incomes")
+  @@index([addedById])
+  @@index([date])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  amount      Float
+  date        DateTime        @default(now())
+  category    ExpenseCategory
+  description String
+  receipt     String?         // URL to receipt image
+  addedById   String
+  addedBy     User            @relation(fields: [addedById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  @@map("expenses")
+  @@index([addedById])
+  @@index([date])
+  @@index([category])
+}
+
+model EmergencyRequest {
+  id                    String         @id @default(cuid())
+  amount                Float
+  reason                String
+  urgency               UrgencyLevel
+  location              String
+  supportingDocument    String?        // URL to image/file
+  status                RequestStatus  @default(PENDING_DIRECTOR)
+  
+  // Timestamps for workflow
+  requestedAt           DateTime       @default(now())
+  directorReviewedAt    DateTime?
+  directorReviewedBy    String?
+  founderReviewedAt     DateTime?
+  founderReviewedBy     String?
+  completedAt           DateTime?
+  completedBy           String?
+  
+  // Notes
+  directorNotes         String?
+  founderNotes          String?
+  completionNotes       String?
+  
+  // Digital signature
+  directorSignature     String?
+  
+  requestedById         String
+  requestedBy           User           @relation(fields: [requestedById], references: [id])
+  
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  
+  // Relations
+  messages              RequestMessage[]
+  
+  @@map("emergency_requests")
+  @@index([requestedById])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+model RequestMessage {
+  id          String           @id @default(cuid())
+  content     String
+  senderId    String
+  senderName  String
+  senderRole  UserRole
+  requestId   String
+  request     EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  
+  @@map("request_messages")
+  @@index([requestId])
+  @@index([createdAt])
+}
+
+model ChatChannel {
+  id          String    @id @default(cuid())
+  name        String
+  isGroup     Boolean   @default(false)
+  participants String[]  // Array of user IDs
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  messages    Message[]
+  
+  @@map("chat_channels")
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  content     String
+  senderId    String
+  sender      User        @relation("SentMessages", fields: [senderId], references: [id])
+  channelId   String
+  channel     ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  read        Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  
+  @@map("messages")
+  @@index([channelId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  images      String[] // Array of image URLs
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("posts")
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // e.g., "APPROVED_EMERGENCY", "ADDED_INCOME"
+  entityType  String   // e.g., "EmergencyRequest", "Income"
+  entityId    String
+  details     String   // JSON string with additional details
+  performedById String
+  performedBy User     @relation(fields: [performedById], references: [id])
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  
+  @@map("audit_logs")
+  @@index([performedById])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
