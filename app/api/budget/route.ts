@@ -97,22 +97,15 @@ export async function GET(req: NextRequest) {
     `
 
     return NextResponse.json({
-      summary: {
-        totalIncome: income,
-        totalExpenses: expenses,
-        emergencySpent,
-        emergencyPending,
-        available,
-        balance: income - expenses - emergencySpent,
-      },
-      recent: {
-        income: recentIncome,
-        expenses: recentExpenses,
-      },
-      monthly: {
-        income: monthlyIncome,
-        expenses: monthlyExpenses,
-      }
+      totalIncome: income,
+      totalExpenses: expenses,
+      emergencyFunds: emergencySpent,
+      available: income - expenses - emergencySpent,
+      balance: income - expenses - emergencySpent,
+      recentIncome,
+      recentExpenses,
+      monthlyIncome,
+      monthlyExpenses,
     })
   } catch (error) {
     console.error('Error fetching budget:', error)
