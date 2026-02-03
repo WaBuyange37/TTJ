@@ -1,11 +1,12 @@
 // Location: app/api/reports/generate/route.ts
-// Generate comprehensive PDF reports
+// Returns report data as JSON for client-side PDF generation
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import PDFDocument from 'pdfkit'
+import fs from 'fs'
+import path from 'path'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,9 +20,9 @@ export async function POST(req: NextRequest) {
 
     const start = new Date(startDate)
     const end = new Date(endDate)
-    end.setHours(23, 59, 59, 999) // End of day
+    end.setHours(23, 59, 59, 999)
 
-    // Fetch data
+    // Fetch data (incomes/expenses/requests/audit) in parallel when requested
     const [incomes, expenses, requests, auditLogs] = await Promise.all([
       includeIncome ? prisma.income.findMany({
         where: { date: { gte: start, lte: end } },
@@ -39,180 +40,253 @@ export async function POST(req: NextRequest) {
         orderBy: { requestedAt: 'desc' }
       }) : [],
       includeAudit ? prisma.auditLog.findMany({
-        where: { timestamp: { gte: start, lte: end } },
+        where: { createdAt: { gte: start, lte: end } },
         include: { performedBy: { select: { name: true } } },
-        orderBy: { timestamp: 'desc' },
-        take: 100 // Limit to recent 100
+        orderBy: { createdAt: 'desc' },
+        take: 100
       }) : []
     ])
 
+    // If budget summary requested, compute it (date range restricted)
+    let budgetSummary = null
+    if (includeBudget) {
+      const [incomeAgg, expenseAgg, approvedEmergencyAgg, pendingEmergencyAgg] = await Promise.all([
+        prisma.income.aggregate({ where: { date: { gte: start, lte: end } }, _sum: { amount: true } }),
+        prisma.expense.aggregate({ where: { date: { gte: start, lte: end } }, _sum: { amount: true } }),
+        prisma.emergencyRequest.aggregate({ where: { requestedAt: { gte: start, lte: end }, status: 'COMPLETED' }, _sum: { amount: true } }),
+        prisma.emergencyRequest.aggregate({ where: { requestedAt: { gte: start, lte: end }, status: { in: ['PENDING_DIRECTOR', 'PENDING_FOUNDERS', 'APPROVED_BY_FOUNDERS'] } }, _sum: { amount: true } }),
+      ])
+
+      const totalIncomeInRange = incomeAgg._sum.amount || 0
+      const totalExpensesInRange = expenseAgg._sum.amount || 0
+      const totalEmergencySpent = approvedEmergencyAgg._sum.amount || 0
+      const totalEmergencyPending = pendingEmergencyAgg._sum.amount || 0
+      const availableInRange = totalIncomeInRange - totalExpensesInRange - totalEmergencySpent
+
+      budgetSummary = {
+        totalIncome: totalIncomeInRange,
+        totalExpenses: totalExpensesInRange,
+        emergencySpent: totalEmergencySpent,
+        emergencyPending: totalEmergencyPending,
+        available: availableInRange,
+      }
+    }
+
     // Calculate totals
-    const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0)
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+    const totalIncome = incomes.reduce((sum, i) => sum + Number(i.amount), 0)
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
     const completedRequests = requests.filter(r => r.status === 'COMPLETED')
-    const totalEmergency = completedRequests.reduce((sum, r) => sum + r.amount, 0)
+    const totalEmergency = completedRequests.reduce((sum, r) => sum + Number(r.amount), 0)
     const available = totalIncome - totalExpenses - totalEmergency
 
-    // Create PDF
-    const doc = new PDFDocument({ margin: 50 })
-    const chunks: Buffer[] = []
-
-    doc.on('data', (chunk) => chunks.push(chunk))
-
-    // Helper functions
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(amount)
-    }
-
-    const formatDate = (date: Date) => {
-      return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    }
-
-    // Header
-    doc.fontSize(24).font('Helvetica-Bold').text('THEM TO JESUS NGO', { align: 'center' })
-    doc.fontSize(16).font('Helvetica').text('Financial Report', { align: 'center' })
-    doc.moveDown()
-    doc.fontSize(12).text(`Period: ${formatDate(start)} to ${formatDate(end)}`, { align: 'center' })
-    doc.fontSize(10).text(`Generated: ${formatDate(new Date())}`, { align: 'center' })
-    doc.fontSize(10).text(`By: ${session.user.name}`, { align: 'center' })
-    doc.moveDown(2)
-
-    // Budget Summary
-    if (includeBudget) {
-      doc.fontSize(16).font('Helvetica-Bold').text('BUDGET SUMMARY')
-      doc.moveDown()
-      
-      const summaryY = doc.y
-      doc.fontSize(11).font('Helvetica')
-      doc.text(`Total Income:`, 50, summaryY)
-      doc.text(formatCurrency(totalIncome), 400, summaryY, { align: 'right' })
-      
-      doc.text(`Total Expenses:`, 50, summaryY + 20)
-      doc.text(formatCurrency(totalExpenses), 400, summaryY + 20, { align: 'right' })
-      
-      doc.text(`Emergency Funds:`, 50, summaryY + 40)
-      doc.text(formatCurrency(totalEmergency), 400, summaryY + 40, { align: 'right' })
-      
-      doc.moveTo(50, summaryY + 60).lineTo(550, summaryY + 60).stroke()
-      
-      doc.fontSize(12).font('Helvetica-Bold')
-      doc.text(`Available Balance:`, 50, summaryY + 70)
-      doc.text(formatCurrency(available), 400, summaryY + 70, { align: 'right', color: available >= 0 ? 'green' : 'red' })
-      
-      doc.moveDown(4)
-    }
-
-    // Income Details
-    if (includeIncome && incomes.length > 0) {
-      doc.addPage()
-      doc.fontSize(16).font('Helvetica-Bold').text('INCOME DETAILS')
-      doc.moveDown()
-      
-      incomes.forEach((income, index) => {
-        if (doc.y > 700) doc.addPage()
-        
-        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${formatDate(income.date)}`)
-        doc.fontSize(10).font('Helvetica')
-        doc.text(`Amount: ${formatCurrency(income.amount)}`)
-        doc.text(`Description: ${income.description}`)
-        doc.text(`From: ${income.sender}`)
-        doc.text(`Category: ${income.category}`)
-        doc.text(`Added by: ${income.addedBy.name}`)
-        doc.moveDown()
-      })
-      
-      doc.moveDown()
-      doc.fontSize(12).font('Helvetica-Bold').text(`Total Income: ${formatCurrency(totalIncome)}`)
-    }
-
-    // Expense Details
-    if (includeExpenses && expenses.length > 0) {
-      doc.addPage()
-      doc.fontSize(16).font('Helvetica-Bold').text('EXPENSE DETAILS')
-      doc.moveDown()
-      
-      expenses.forEach((expense, index) => {
-        if (doc.y > 700) doc.addPage()
-        
-        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${formatDate(expense.date)}`)
-        doc.fontSize(10).font('Helvetica')
-        doc.text(`Amount: ${formatCurrency(expense.amount)}`)
-        doc.text(`Description: ${expense.description}`)
-        doc.text(`Category: ${expense.category}`)
-        if (expense.receipt) doc.text(`Receipt: ${expense.receipt}`)
-        doc.text(`Added by: ${expense.addedBy.name}`)
-        doc.moveDown()
-      })
-      
-      doc.moveDown()
-      doc.fontSize(12).font('Helvetica-Bold').text(`Total Expenses: ${formatCurrency(totalExpenses)}`)
-    }
-
-    // Emergency Requests
-    if (includeRequests && requests.length > 0) {
-      doc.addPage()
-      doc.fontSize(16).font('Helvetica-Bold').text('EMERGENCY REQUESTS')
-      doc.moveDown()
-      
-      requests.forEach((request, index) => {
-        if (doc.y > 700) doc.addPage()
-        
-        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${formatDate(request.requestedAt)}`)
-        doc.fontSize(10).font('Helvetica')
-        doc.text(`Amount: ${formatCurrency(request.amount)}`)
-        doc.text(`Reason: ${request.reason}`)
-        doc.text(`Urgency: ${request.urgency}`)
-        doc.text(`Location: ${request.location}`)
-        doc.text(`Status: ${request.status}`)
-        doc.text(`Requested by: ${request.requestedBy.name}`)
-        doc.moveDown()
-      })
-      
-      const pending = requests.filter(r => r.status.includes('PENDING')).length
-      const approved = requests.filter(r => r.status.includes('APPROVED') || r.status === 'COMPLETED').length
-      const rejected = requests.filter(r => r.status.includes('REJECTED')).length
-      
-      doc.moveDown()
-      doc.fontSize(12).font('Helvetica-Bold').text(`Summary: ${pending} Pending, ${approved} Approved, ${rejected} Rejected`)
-    }
-
-    // Audit Trail
-    if (includeAudit && auditLogs.length > 0) {
-      doc.addPage()
-      doc.fontSize(16).font('Helvetica-Bold').text('AUDIT TRAIL')
-      doc.moveDown()
-      doc.fontSize(9).text('(Showing last 100 entries)')
-      doc.moveDown()
-      
-      auditLogs.forEach((log, index) => {
-        if (doc.y > 720) doc.addPage()
-        
-        doc.fontSize(9).font('Helvetica')
-        doc.text(`${formatDate(log.timestamp)} - ${log.action} by ${log.performedBy.name}`)
-      })
-    }
-
-    // Footer on last page
-    doc.moveDown(3)
-    doc.fontSize(10).font('Helvetica-Italic').text('End of Report', { align: 'center' })
-    doc.fontSize(8).text(`Generated by Them to Jesus NGO Management System`, { align: 'center' })
-
-    // Finalize PDF
-    doc.end()
-
-    // Wait for PDF generation to complete
-    await new Promise((resolve) => {
-      doc.on('end', resolve)
-    })
-
-    const pdfBuffer = Buffer.concat(chunks)
-
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="TTJ-Report-${startDate}-to-${endDate}.pdf"`,
+    // Structured data object (used for JSON or PDF export)
+    const reportData = {
+      metadata: {
+        startDate,
+        endDate,
+        generatedAt: new Date().toISOString(),
+        generatedBy: session.user.name,
       },
-    })
+      summary: {
+        totalIncome,
+        totalExpenses,
+        totalEmergency,
+        available,
+      },
+      incomes: incomes.map(i => ({
+        date: i.date.toISOString(),
+        amount: Number(i.amount),
+        description: i.description,
+        sender: i.sender,
+        category: i.category,
+        addedBy: i.addedBy.name,
+      })),
+      expenses: expenses.map(e => ({
+        date: e.date.toISOString(),
+        amount: Number(e.amount),
+        description: e.description,
+        category: e.category,
+        receipt: e.receipt,
+        addedBy: e.addedBy.name,
+      })),
+      requests: requests.map(r => ({
+        date: r.requestedAt.toISOString(),
+        amount: Number(r.amount),
+        reason: r.reason,
+        urgency: r.urgency,
+        location: r.location,
+        status: r.status,
+        requestedBy: r.requestedBy.name,
+      })),
+      auditLogs: auditLogs.map(a => ({
+        timestamp: a.createdAt.toISOString(),
+        action: a.action,
+        performedBy: a.performedBy?.name || null,
+        entityType: a.entityType,
+      })),
+      // Include budget summary when requested
+      budget: budgetSummary,
+    }
+
+    // If client requested PDF, generate it server-side and return binary
+    if (body && body.format === 'pdf') {
+      // Validate inputs
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: 'startDate and endDate are required for PDF generation' }, { status: 400 })
+      }
+
+      try {
+        const PDFDocument = (await import('pdfkit')).default
+        const doc = new PDFDocument({ size: 'A4', margin: 50 })
+        const buffers: Buffer[] = []
+        doc.on('data', (chunk) => buffers.push(Buffer.from(chunk)))
+
+        // Try to register a system TrueType font to avoid PDFKit looking for AFM files
+        // (Next's server bundle may not include pdfkit's AFM files, causing ENOENT for Helvetica.afm)
+        try {
+          // common system fonts
+          const systemFonts = [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+            '/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+          ]
+
+          // also look for any .ttf files in the project's public/fonts directory
+          const projectFontsDir = path.join(process.cwd(), 'public', 'fonts')
+          let projectFonts: string[] = []
+          try {
+            if (fs.existsSync(projectFontsDir)) {
+              projectFonts = fs.readdirSync(projectFontsDir)
+                .filter(f => f.toLowerCase().endsWith('.ttf') || f.toLowerCase().endsWith('.otf'))
+                .map(f => path.join(projectFontsDir, f))
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          const possibleFonts = [...projectFonts, ...systemFonts]
+          let fontPath = possibleFonts.find(p => fs.existsSync(p))
+
+          // If no font found, try to download a small open-source font (DejaVuSans) into public/fonts
+          if (!fontPath) {
+            try {
+              const downloadUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf'
+              if (!fs.existsSync(projectFontsDir)) fs.mkdirSync(projectFontsDir, { recursive: true })
+              const target = path.join(projectFontsDir, 'DejaVuSans.ttf')
+
+              // Only download if not already present
+              if (!fs.existsSync(target)) {
+                const res = await fetch(downloadUrl)
+                if (res.ok) {
+                  const buf = Buffer.from(await res.arrayBuffer())
+                  fs.writeFileSync(target, buf)
+                  console.log('Downloaded DejaVuSans.ttf to', target)
+                } else {
+                  console.warn('Failed to download font. HTTP status:', res.status)
+                }
+              }
+
+              if (fs.existsSync(target)) fontPath = target
+            } catch (e) {
+              console.warn('Font auto-download failed:', e)
+            }
+          }
+          if (fontPath) {
+            // registerFont is provided by PDFDocument; use a stable registered name
+            ;(doc as any).registerFont?.('TTFSans', fontPath)
+            doc.font('TTFSans')
+          } else {
+            // No system TTF found; continue — PDFKit will try built-in fonts (might fail if AFM files missing)
+            console.warn('No system TTF font found for PDF generation; PDFKit may attempt AFM files.')
+          }
+        } catch (fontErr) {
+          console.warn('Failed to register system font for PDF generation:', fontErr)
+        }
+
+        const pdfEnd = new Promise<Buffer>((resolve, reject) => {
+          doc.on('end', () => resolve(Buffer.concat(buffers)))
+          doc.on('error', reject)
+        })
+
+        // Header
+        doc.fontSize(20).text('Them To Jesus — Financial Report', { align: 'center' })
+        doc.moveDown()
+        doc.fontSize(10).text(`Period: ${startDate} — ${endDate}`)
+        doc.text(`Generated by: ${session.user.name} on ${new Date().toLocaleString()}`)
+        doc.moveDown()
+
+        // Summary
+        doc.fontSize(12).text('Summary', { underline: true })
+        doc.fontSize(10).text(`Total Income: ${reportData.summary.totalIncome}`)
+        doc.text(`Total Expenses: ${reportData.summary.totalExpenses}`)
+        doc.text(`Total Emergency (completed): ${reportData.summary.totalEmergency}`)
+        doc.text(`Available: ${reportData.summary.available}`)
+        doc.moveDown()
+
+        // Budget summary
+        if (reportData.budget) {
+          doc.fontSize(12).text('Budget Summary', { underline: true })
+          doc.fontSize(10).text(`Income in range: ${reportData.budget.totalIncome}`)
+          doc.text(`Expenses in range: ${reportData.budget.totalExpenses}`)
+          doc.text(`Emergency spent: ${reportData.budget.emergencySpent}`)
+          doc.text(`Emergency pending: ${reportData.budget.emergencyPending}`)
+          doc.text(`Available in range: ${reportData.budget.available}`)
+          doc.moveDown()
+        }
+
+        // Sections helper
+        const writeList = (title: string, items: any[], formatter: (i: any) => string) => {
+          if (!items || items.length === 0) return
+          doc.fontSize(12).text(title, { underline: true })
+          doc.moveDown(0.25)
+          items.forEach((it) => {
+            doc.fontSize(10).text(formatter(it))
+            doc.moveDown(0.25)
+          })
+          doc.moveDown()
+        }
+
+        writeList('Incomes', reportData.incomes, (i) => `${new Date(i.date).toLocaleDateString()} — ${i.description} — ${i.amount} (${i.sender})`)
+        writeList('Expenses', reportData.expenses, (e) => `${new Date(e.date).toLocaleDateString()} — ${e.description} — ${e.amount} (${e.category})`)
+        writeList('Emergency Requests', reportData.requests, (r) => `${new Date(r.date).toLocaleDateString()} — ${r.reason} — ${r.amount} (${r.status})`)
+        writeList('Audit Logs', reportData.auditLogs, (a) => `${new Date(a.timestamp).toLocaleString()} — ${a.action} — ${a.performedBy || 'system'}`)
+
+        // Finalize
+        doc.end()
+        const pdfBuffer = await pdfEnd
+
+        // Generate safe filename
+        const safeStart = startDate.replace(/[^0-9-]/g, '_')
+        const safeEnd = endDate.replace(/[^0-9-]/g, '_')
+
+        // Return PDF as binary - cast to BodyInit for TypeScript compatibility
+        return new Response(pdfBuffer as unknown as BodyInit, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="report_${safeStart}_${safeEnd}.pdf"`,
+          },
+        })
+      } catch (pdfError) {
+        console.error('PDF generation error:', pdfError)
+
+        // If the error is an ENOENT for AFM metric files (commonly Helvetica.afm) provide a helpful hint
+        let details = String(pdfError)
+        try {
+          if ((pdfError as any)?.code === 'ENOENT' || details.includes('Helvetica.afm') || details.includes('.afm')) {
+            details += ' — Missing AFM font metrics. On Linux install fonts such as DejaVu (`sudo apt install fonts-dejavu-core`) or add a TTF to the server and register it (e.g. /public/fonts).'
+          }
+        } catch (e) {
+          // ignore enrichment failures
+        }
+
+        return NextResponse.json({ error: 'PDF generation failed', details }, { status: 500 })
+      }
+    }
+
+    // Default: return JSON data
+    return NextResponse.json(reportData)
 
   } catch (error) {
     console.error('Error generating report:', error)

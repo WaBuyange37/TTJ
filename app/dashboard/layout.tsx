@@ -23,7 +23,6 @@ export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
-
 }) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
@@ -47,8 +46,13 @@ export default function DashboardLayout({
 
   // Define navigation based on role
   const getNavigation = () => {
+    // Fix dashboard URL for COUNTRY_DIRECTOR
+    const dashboardUrl = role === 'COUNTRY_DIRECTOR' 
+      ? '/dashboard/director' 
+      : `/dashboard/${role.toLowerCase().replace('_', '-')}`
+    
     const baseNav = [
-      { name: 'Dashboard', href: `/dashboard/${role.toLowerCase().replace('_', '-')}`, icon: LayoutDashboard },
+      { name: 'Dashboard', href: dashboardUrl, icon: LayoutDashboard },
     ]
 
     if (role === 'FOUNDER') {
@@ -57,7 +61,9 @@ export default function DashboardLayout({
         { name: 'Budget Overview', href: '/dashboard/founder/budget', icon: DollarSign },
         { name: 'Emergency Requests', href: '/dashboard/founder/requests', icon: AlertCircle },
         { name: 'Reports', href: '/dashboard/founder/reports', icon: TrendingUp },
-        { name: 'Updates', href: '/dashboard/founder/updates', icon: FileText },
+        { name: 'Team Updates', href: '/dashboard/founder/updates', icon: FileText },
+        { name: 'Manage Posts', href: '/dashboard/founder/posts', icon: FileText },
+        { name: 'Public Updates', href: '/dashboard/founder/public-updates', icon: Users },
         { name: 'Messages', href: '/dashboard/founder/messages', icon: MessageSquare },
       ]
     } else if (role === 'COUNTRY_DIRECTOR') {
@@ -68,6 +74,8 @@ export default function DashboardLayout({
         { name: 'Expenses', href: '/dashboard/director/expenses', icon: Receipt },
         { name: 'Emergency Requests', href: '/dashboard/director/requests', icon: AlertCircle },
         { name: 'Reports', href: '/dashboard/director/reports', icon: FileText },
+        { name: 'Review Posts', href: '/dashboard/director/posts', icon: FileText },
+        { name: 'Public Updates', href: '/dashboard/director/public-updates', icon: Users },
         { name: 'Messages', href: '/dashboard/director/messages', icon: MessageSquare },
       ]
     } else if (role === 'SOCIAL_WORKER') {
@@ -75,6 +83,7 @@ export default function DashboardLayout({
         ...baseNav,
         { name: 'My Requests', href: '/dashboard/social-worker/requests', icon: AlertCircle },
         { name: 'Post Updates', href: '/dashboard/social-worker/updates', icon: FileText },
+        { name: 'My Posts', href: '/dashboard/social-worker/posts', icon: FileText },
         { name: 'Messages', href: '/dashboard/social-worker/messages', icon: MessageSquare },
       ]
     }

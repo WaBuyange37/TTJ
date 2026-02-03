@@ -69,22 +69,181 @@ export default function DirectorReportsPage() {
     setGenerating(true)
     
     try {
+      // Request server to return PDF directly (falls back to JSON if not)
       const response = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, format: 'pdf' }),
       })
 
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
+      const contentType = response.headers.get('content-type') || ''
+
+      if (response.ok && contentType.includes('application/pdf')) {
+        // Receive binary PDF and download
+        const buffer = await response.arrayBuffer()
+        const blob = new Blob([buffer], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `TTJ-NGO-Report-${form.startDate}-to-${form.endDate}.pdf`
+        a.download = `TTJ-Report-${form.startDate}-to-${form.endDate}.pdf`
         document.body.appendChild(a)
         a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+        a.remove()
+        URL.revokeObjectURL(url)
+
+        toast({ title: 'Success!', description: 'Report downloaded successfully' })
+      } else if (response.ok) {
+        // Fallback: server returned JSON data — generate client-side PDF
+        const data = await response.json()
+
+        const { jsPDF } = await import('jspdf')
+        const doc = new jsPDF()
+
+        const formatCurrency = (amount: number) => {
+          return new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(amount)
+        }
+
+        const formatDate = (dateStr: string) => {
+          return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        }
+
+        let yPos = 20
+
+        // Header
+        doc.setFontSize(20)
+        doc.text('THEM TO JESUS NGO', 105, yPos, { align: 'center' })
+        yPos += 10
+        doc.setFontSize(16)
+        doc.text('Financial Report', 105, yPos, { align: 'center' })
+        yPos += 10
+        doc.setFontSize(12)
+        doc.text(`Period: ${formatDate(data.metadata.startDate)} to ${formatDate(data.metadata.endDate)}`, 105, yPos, { align: 'center' })
+        yPos += 7
+        doc.setFontSize(10)
+        doc.text(`Generated: ${formatDate(data.metadata.generatedAt)}`, 105, yPos, { align: 'center' })
+        yPos += 5
+        doc.text(`By: ${data.metadata.generatedBy}`, 105, yPos, { align: 'center' })
+        yPos += 15
+
+        // Budget Summary
+        if (form.includeBudget) {
+          doc.setFontSize(14)
+          doc.text('BUDGET SUMMARY', 20, yPos)
+          yPos += 10
+
+          doc.setFontSize(11)
+          doc.text('Total Income:', 20, yPos)
+          doc.text(formatCurrency(data.summary.totalIncome), 150, yPos, { align: 'right' })
+          yPos += 7
+
+          doc.text('Total Expenses:', 20, yPos)
+          doc.text(formatCurrency(data.summary.totalExpenses), 150, yPos, { align: 'right' })
+          yPos += 7
+
+          doc.text('Emergency Funds:', 20, yPos)
+          doc.text(formatCurrency(data.summary.totalEmergency), 150, yPos, { align: 'right' })
+          yPos += 7
+
+          doc.line(20, yPos, 150, yPos)
+          yPos += 5
+
+          doc.setFontSize(12)
+          doc.text('Available Balance:', 20, yPos)
+          doc.text(formatCurrency(data.summary.available), 150, yPos, { align: 'right' })
+          yPos += 15
+        }
+
+        // Income Details
+        if (form.includeIncome && data.incomes.length > 0) {
+          if (yPos > 250) {
+            doc.addPage()
+            yPos = 20
+          }
+
+          doc.setFontSize(14)
+          doc.text('INCOME DETAILS', 20, yPos)
+          yPos += 10
+
+          doc.setFontSize(10)
+          data.incomes.forEach((income: any, index: number) => {
+            if (yPos > 270) {
+              doc.addPage()
+              yPos = 20
+            }
+
+            doc.text(`${index + 1}. ${formatDate(income.date)} - ${formatCurrency(income.amount)}`, 20, yPos)
+            yPos += 5
+            doc.text(`   ${income.description}`, 20, yPos)
+            yPos += 5
+            doc.text(`   From: ${income.sender} | Added by: ${income.addedBy}`, 20, yPos)
+            yPos += 8
+          })
+
+          doc.setFontSize(12)
+          doc.text(`Total: ${formatCurrency(data.summary.totalIncome)}`, 20, yPos)
+          yPos += 15
+        }
+
+        // Expense Details
+        if (form.includeExpenses && data.expenses.length > 0) {
+          if (yPos > 250) {
+            doc.addPage()
+            yPos = 20
+          }
+
+          doc.setFontSize(14)
+          doc.text('EXPENSE DETAILS', 20, yPos)
+          yPos += 10
+
+          doc.setFontSize(10)
+          data.expenses.forEach((expense: any, index: number) => {
+            if (yPos > 270) {
+              doc.addPage()
+              yPos = 20
+            }
+
+            doc.text(`${index + 1}. ${formatDate(expense.date)} - ${formatCurrency(expense.amount)}`, 20, yPos)
+            yPos += 5
+            doc.text(`   ${expense.description}`, 20, yPos)
+            yPos += 5
+            doc.text(`   Category: ${expense.category} | Added by: ${expense.addedBy}`, 20, yPos)
+            yPos += 8
+          })
+
+          doc.setFontSize(12)
+          doc.text(`Total: ${formatCurrency(data.summary.totalExpenses)}`, 20, yPos)
+          yPos += 15
+        }
+
+        // Emergency Requests
+        if (form.includeRequests && data.requests.length > 0) {
+          if (yPos > 250) {
+            doc.addPage()
+            yPos = 20
+          }
+
+          doc.setFontSize(14)
+          doc.text('EMERGENCY REQUESTS', 20, yPos)
+          yPos += 10
+
+          doc.setFontSize(10)
+          data.requests.forEach((request: any, index: number) => {
+            if (yPos > 260) {
+              doc.addPage()
+              yPos = 20
+            }
+
+            doc.text(`${index + 1}. ${formatDate(request.date)} - ${formatCurrency(request.amount)}`, 20, yPos)
+            yPos += 5
+            doc.text(`   ${request.reason}`, 20, yPos)
+            yPos += 5
+            doc.text(`   Status: ${request.status} | Urgency: ${request.urgency}`, 20, yPos)
+            yPos += 8
+          })
+        }
+
+        // Save PDF
+        doc.save(`TTJ-Report-${form.startDate}-to-${form.endDate}.pdf`)
 
         toast({
           title: 'Success!',
@@ -92,13 +251,15 @@ export default function DirectorReportsPage() {
         })
       } else {
         const error = await response.json()
+        const details = error.details ? ` — ${String(error.details).split('\n')[0]}` : ''
         toast({
           title: 'Error',
-          description: error.error || 'Failed to generate report',
+          description: `${error.error || 'Failed to generate report'}${details}`,
           variant: 'destructive',
         })
       }
     } catch (error) {
+      console.error('Error:', error)
       toast({
         title: 'Error',
         description: 'An error occurred while generating the report',

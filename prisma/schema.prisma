@@ -51,26 +51,27 @@ enum ExpenseCategory {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  password      String
-  role          UserRole
-  country       String?
-  location      String?
-  phone         String?
-  avatar        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole
+  country   String?
+  location  String?
+  phone     String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  sentMessages       Message[]          @relation("SentMessages")
-  emergencyRequests  EmergencyRequest[]
+  sentMessages      Message[]          @relation("SentMessages")
+  emergencyRequests EmergencyRequest[]
   incomes           Income[]
   expenses          Expense[]
   auditLogs         AuditLog[]
   posts             Post[]
-  
+  girls             Girl[]
+
   @@map("users")
 }
 
@@ -79,16 +80,16 @@ model Income {
   amount      Float
   date        DateTime       @default(now())
   description String
-  sender      String         // Which founder sent
+  sender      String // Which founder sent
   category    IncomeCategory @default(MONTHLY_BUDGET)
   addedById   String
   addedBy     User           @relation(fields: [addedById], references: [id])
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
-  
-  @@map("incomes")
+
   @@index([addedById])
   @@index([date])
+  @@map("incomes")
 }
 
 model Expense {
@@ -97,133 +98,158 @@ model Expense {
   date        DateTime        @default(now())
   category    ExpenseCategory
   description String
-  receipt     String?         // URL to receipt image
+  receipt     String? // URL to receipt image
   addedById   String
   addedBy     User            @relation(fields: [addedById], references: [id])
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-  
-  @@map("expenses")
+
   @@index([addedById])
   @@index([date])
   @@index([category])
+  @@map("expenses")
 }
 
 model EmergencyRequest {
-  id                    String         @id @default(cuid())
-  amount                Float
-  reason                String
-  urgency               UrgencyLevel
-  location              String
-  supportingDocument    String?        // URL to image/file
-  status                RequestStatus  @default(PENDING_DIRECTOR)
-  
+  id                 String        @id @default(cuid())
+  amount             Float
+  reason             String
+  urgency            UrgencyLevel
+  location           String
+  supportingDocument String? // URL to image/file
+  status             RequestStatus @default(PENDING_DIRECTOR)
+
   // Timestamps for workflow
-  requestedAt           DateTime       @default(now())
-  directorReviewedAt    DateTime?
-  directorReviewedBy    String?
-  founderReviewedAt     DateTime?
-  founderReviewedBy     String?
-  completedAt           DateTime?
-  completedBy           String?
-  
+  requestedAt        DateTime  @default(now())
+  directorReviewedAt DateTime?
+  directorReviewedBy String?
+  founderReviewedAt  DateTime?
+  founderReviewedBy  String?
+  completedAt        DateTime?
+  completedBy        String?
+
   // Notes
-  directorNotes         String?
-  founderNotes          String?
-  completionNotes       String?
-  
+  directorNotes   String?
+  founderNotes    String?
+  completionNotes String?
+
   // Digital signature
-  directorSignature     String?
-  
-  requestedById         String
-  requestedBy           User           @relation(fields: [requestedById], references: [id])
-  
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
-  
+  directorSignature String?
+
+  requestedById String
+  requestedBy   User   @relation(fields: [requestedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  messages              RequestMessage[]
-  
-  @@map("emergency_requests")
+  messages RequestMessage[]
+
   @@index([requestedById])
   @@index([status])
   @@index([requestedAt])
+  @@map("emergency_requests")
 }
 
 model RequestMessage {
-  id          String           @id @default(cuid())
-  content     String
-  senderId    String
-  senderName  String
-  senderRole  UserRole
-  requestId   String
-  request     EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  createdAt   DateTime         @default(now())
-  
-  @@map("request_messages")
+  id         String           @id @default(cuid())
+  content    String
+  senderId   String
+  senderName String
+  senderRole UserRole
+  requestId  String
+  request    EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
   @@index([requestId])
   @@index([createdAt])
+  @@map("request_messages")
 }
 
 model ChatChannel {
-  id          String    @id @default(cuid())
-  name        String
-  isGroup     Boolean   @default(false)
-  participants String[]  // Array of user IDs
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  id           String   @id @default(cuid())
+  name         String
+  isGroup      Boolean  @default(false)
+  participants String[] // Array of user IDs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   // Relations
-  messages    Message[]
-  
+  messages Message[]
+
   @@map("chat_channels")
 }
 
 model Message {
-  id          String      @id @default(cuid())
-  content     String
-  senderId    String
-  sender      User        @relation("SentMessages", fields: [senderId], references: [id])
-  channelId   String
-  channel     ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  read        Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  
-  @@map("messages")
+  id        String      @id @default(cuid())
+  content   String
+  senderId  String
+  sender    User        @relation("SentMessages", fields: [senderId], references: [id])
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  read      Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
   @@index([channelId])
   @@index([senderId])
   @@index([createdAt])
+  @@map("messages")
+}
+
+model Girl {
+  id               String   @id @default(cuid())
+  title            String
+  content          String
+  images           String[] @default([])
+  editedByDirector Boolean  @default(false)
+  editedByFounder  Boolean  @default(false)
+  authorId         String
+  author           User     @relation(fields: [authorId], references: [id])
+  published        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([published])
+  @@map("girls")
 }
 
 model Post {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  images      String[] // Array of image URLs
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  published   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("posts")
+  id               String   @id @default(cuid())
+  title            String
+  content          String
+  images           String[] // Array of image URLs
+  category         String   @default("mission") // success_stories, girls_updates, mission, thank_you
+  isPublic         Boolean  @default(false) // true = visible on public website
+  editedByDirector Boolean  @default(false) // Director has reviewed
+  editedByFounder  Boolean  @default(false) // Founder has enhanced
+  authorId         String
+  author           User     @relation(fields: [authorId], references: [id])
+  published        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
   @@index([authorId])
   @@index([createdAt])
+  @@index([isPublic])
+  @@index([category])
+  @@map("posts")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  action      String   // e.g., "APPROVED_EMERGENCY", "ADDED_INCOME"
-  entityType  String   // e.g., "EmergencyRequest", "Income"
-  entityId    String
-  details     String   // JSON string with additional details
+  id            String   @id @default(cuid())
+  action        String // e.g., "APPROVED_EMERGENCY", "ADDED_INCOME"
+  entityType    String // e.g., "EmergencyRequest", "Income"
+  entityId      String
+  details       String // JSON string with additional details
   performedById String
-  performedBy User     @relation(fields: [performedById], references: [id])
-  ipAddress   String?
-  createdAt   DateTime @default(now())
-  
-  @@map("audit_logs")
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
   @@index([performedById])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@map("audit_logs")
 }
