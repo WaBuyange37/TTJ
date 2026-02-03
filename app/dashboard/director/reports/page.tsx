@@ -11,8 +11,54 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { FileText, Download, Calendar, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
+
+// Type definitions for better type safety
+interface ReportSummary {
+  totalIncome: number
+  totalExpenses: number
+  totalEmergency: number
+  available: number
+}
+
+interface Income {
+  date: string
+  amount: number
+  description: string
+  sender: string
+  addedBy: string
+}
+
+interface Expense {
+  date: string
+  amount: number
+  description: string
+  category: string
+  addedBy: string
+}
+
+interface EmergencyRequest {
+  date: string
+  amount: number
+  reason: string
+  status: string
+  urgency: string
+}
+
+interface ReportData {
+  metadata: {
+    startDate: string
+    endDate: string
+    generatedAt: string
+    generatedBy: string
+    organization?: string
+  }
+  summary: ReportSummary
+  incomes: Income[]
+  expenses: Expense[]
+  requests: EmergencyRequest[]
+}
 
 export default function DirectorReportsPage() {
   const { data: session, status } = useSession()
@@ -32,9 +78,9 @@ export default function DirectorReportsPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (session?.user.role !== 'COUNTRY_DIRECTOR') {
-      router.push('/dashboard')
+      router.push('/auth/Login')
+    } else if (session?.user?.role !== 'COUNTRY_DIRECTOR') {
+      router.push('/customer')
     }
   }, [status, session, router])
 
@@ -85,33 +131,46 @@ export default function DirectorReportsPage() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `TTJ-Report-${form.startDate}-to-${form.endDate}.pdf`
+        a.download = `Them-To-Jesus-Report-${form.startDate}-to-${form.endDate}.pdf`
         document.body.appendChild(a)
         a.click()
         a.remove()
         URL.revokeObjectURL(url)
 
-        toast({ title: 'Success!', description: 'Report downloaded successfully' })
+        toast({ 
+          title: 'Success!', 
+          description: 'Report downloaded successfully' 
+        })
       } else if (response.ok) {
         // Fallback: server returned JSON data — generate client-side PDF
-        const data = await response.json()
+        const data: ReportData = await response.json()
 
+        // Dynamic import to reduce bundle size
         const { jsPDF } = await import('jspdf')
         const doc = new jsPDF()
 
         const formatCurrency = (amount: number) => {
-          return new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(amount)
+          return new Intl.NumberFormat('en-RW', { 
+            style: 'currency', 
+            currency: 'RWF', 
+            maximumFractionDigits: 0 
+          }).format(amount)
         }
 
         const formatDate = (dateStr: string) => {
-          return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+          return new Date(dateStr).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })
         }
 
         let yPos = 20
 
         // Header
+        const orgName = data.metadata.organization || 'THEM TO JESUS NGO'
         doc.setFontSize(20)
-        doc.text('THEM TO JESUS NGO', 105, yPos, { align: 'center' })
+        doc.text(orgName, 105, yPos, { align: 'center' })
         yPos += 10
         doc.setFontSize(16)
         doc.text('Financial Report', 105, yPos, { align: 'center' })
@@ -126,7 +185,7 @@ export default function DirectorReportsPage() {
         yPos += 15
 
         // Budget Summary
-        if (form.includeBudget) {
+        if (form.includeBudget && data.summary) {
           doc.setFontSize(14)
           doc.text('BUDGET SUMMARY', 20, yPos)
           yPos += 10
@@ -154,7 +213,7 @@ export default function DirectorReportsPage() {
         }
 
         // Income Details
-        if (form.includeIncome && data.incomes.length > 0) {
+        if (form.includeIncome && data.incomes && data.incomes.length > 0) {
           if (yPos > 250) {
             doc.addPage()
             yPos = 20
@@ -165,7 +224,7 @@ export default function DirectorReportsPage() {
           yPos += 10
 
           doc.setFontSize(10)
-          data.incomes.forEach((income: any, index: number) => {
+          data.incomes.forEach((income, index) => {
             if (yPos > 270) {
               doc.addPage()
               yPos = 20
@@ -185,7 +244,7 @@ export default function DirectorReportsPage() {
         }
 
         // Expense Details
-        if (form.includeExpenses && data.expenses.length > 0) {
+        if (form.includeExpenses && data.expenses && data.expenses.length > 0) {
           if (yPos > 250) {
             doc.addPage()
             yPos = 20
@@ -196,7 +255,7 @@ export default function DirectorReportsPage() {
           yPos += 10
 
           doc.setFontSize(10)
-          data.expenses.forEach((expense: any, index: number) => {
+          data.expenses.forEach((expense, index) => {
             if (yPos > 270) {
               doc.addPage()
               yPos = 20
@@ -216,7 +275,7 @@ export default function DirectorReportsPage() {
         }
 
         // Emergency Requests
-        if (form.includeRequests && data.requests.length > 0) {
+        if (form.includeRequests && data.requests && data.requests.length > 0) {
           if (yPos > 250) {
             doc.addPage()
             yPos = 20
@@ -227,7 +286,7 @@ export default function DirectorReportsPage() {
           yPos += 10
 
           doc.setFontSize(10)
-          data.requests.forEach((request: any, index: number) => {
+          data.requests.forEach((request, index) => {
             if (yPos > 260) {
               doc.addPage()
               yPos = 20
@@ -243,7 +302,8 @@ export default function DirectorReportsPage() {
         }
 
         // Save PDF
-        doc.save(`TTJ-Report-${form.startDate}-to-${form.endDate}.pdf`)
+        const filenameOrg = (orgName || 'Them-To-Jesus').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\-]/g, '')
+        doc.save(`${filenameOrg}-Report-${form.startDate}-to-${form.endDate}.pdf`)
 
         toast({
           title: 'Success!',
@@ -259,7 +319,7 @@ export default function DirectorReportsPage() {
         })
       }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error generating report:', error)
       toast({
         title: 'Error',
         description: 'An error occurred while generating the report',
@@ -360,7 +420,7 @@ export default function DirectorReportsPage() {
                     variant="outline"
                     onClick={() => {
                       const today = new Date()
-                      const threeMonthsAgo = new Date(today.setMonth(today.getMonth() - 3))
+                      const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1)
                       setForm({
                         ...form,
                         startDate: threeMonthsAgo.toISOString().split('T')[0],
@@ -479,32 +539,32 @@ export default function DirectorReportsPage() {
           {/* What's Included Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">What's Included</CardTitle>
+              <CardTitle className="text-base">What&apos;s Included</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-start space-x-2">
-                <TrendingUp className="h-4 w-4 text-blue-600 mt-0.5" />
+                <TrendingUp className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">Financial Summary</p>
                   <p className="text-gray-600">Total income, expenses, and available balance</p>
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <TrendingDown className="h-4 w-4 text-orange-600 mt-0.5" />
+                <TrendingDown className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">Detailed Transactions</p>
                   <p className="text-gray-600">Complete list of all financial activities</p>
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <AlertCircle className="h-4 w-4 text-purple-600 mt-0.5" />
+                <AlertCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">Emergency Requests</p>
                   <p className="text-gray-600">Status and outcome of all funding requests</p>
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <FileText className="h-4 w-4 text-green-600 mt-0.5" />
+                <FileText className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">Audit Trail</p>
                   <p className="text-gray-600">Complete history of all actions taken</p>
@@ -518,9 +578,9 @@ export default function DirectorReportsPage() {
             <CardContent className="pt-6">
               <h3 className="font-semibold text-blue-900 mb-2">💡 Tips</h3>
               <ul className="space-y-2 text-sm text-blue-800">
-                <li>• Use monthly reports for regular founder updates</li>
+                <li>• Use monthly reports for regular stakeholder updates</li>
                 <li>• Include audit trail for complete transparency</li>
-                <li>• Generate quarterly reports for visa applications</li>
+                <li>• Generate quarterly reports for documentation</li>
                 <li>• Keep digital copies for your records</li>
               </ul>
             </CardContent>
@@ -532,10 +592,10 @@ export default function DirectorReportsPage() {
               <div className="text-center">
                 <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-3">
-                  Reports are professionally formatted and ready to share with founders or use for official documentation.
+                  Reports are professionally formatted and ready to share with stakeholders or use for official documentation.
                 </p>
                 <p className="text-xs text-gray-500">
-                  PDF format • Includes charts • Logo header • Digital signatures
+                  PDF format • Includes charts • Logo header • Professional layout
                 </p>
               </div>
             </CardContent>
