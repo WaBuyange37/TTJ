@@ -83,39 +83,31 @@ export async function POST(request: NextRequest) {
       requests: [] as any[]
     }
 
-    // Fetch Income Data (if your schema has this table)
+    // Fetch Income Data (from Prisma model)
     if (includeIncome) {
       try {
-        // Check if Income table exists in your Prisma schema
-        // Adjust this query based on your actual schema
-        const incomes = await prisma.$queryRaw`
-          SELECT 
-            id,
-            date,
-            amount,
-            description,
-            sender,
-            created_at as "createdAt"
-          FROM income
-          WHERE date >= ${start} AND date <= ${end}
-          ORDER BY date DESC
-        ` as any[]
+        const incomes = await prisma.income.findMany({
+          where: {
+            date: { gte: start, lte: end }
+          },
+          include: { addedBy: { select: { name: true } } },
+          orderBy: { date: 'desc' }
+        })
 
         reportData.incomes = incomes.map((income: any) => ({
           date: income.date,
           amount: Number(income.amount),
           description: income.description || 'No description',
           sender: income.sender || 'Unknown',
-          addedBy: 'Admin' // You can join with user table if needed
+          addedBy: income.addedBy?.name || 'Unknown'
         }))
 
         reportData.summary.totalIncome = incomes.reduce(
-          (sum: number, income: any) => sum + Number(income.amount), 
+          (sum: number, income: any) => sum + Number(income.amount),
           0
         )
       } catch (error) {
-        console.log('Income table not found or error:', error)
-        // Table might not exist, continue without it
+        console.log('Error fetching incomes:', error)
         reportData.incomes = []
       }
     }
@@ -123,33 +115,28 @@ export async function POST(request: NextRequest) {
     // Fetch Expense Data
     if (includeExpenses) {
       try {
-        const expenses = await prisma.$queryRaw`
-          SELECT 
-            id,
-            date,
-            amount,
-            description,
-            category,
-            created_at as "createdAt"
-          FROM expenses
-          WHERE date >= ${start} AND date <= ${end}
-          ORDER BY date DESC
-        ` as any[]
+        const expenses = await prisma.expense.findMany({
+          where: {
+            date: { gte: start, lte: end }
+          },
+          include: { addedBy: { select: { name: true } } },
+          orderBy: { date: 'desc' }
+        })
 
         reportData.expenses = expenses.map((expense: any) => ({
           date: expense.date,
           amount: Number(expense.amount),
           description: expense.description || 'No description',
           category: expense.category || 'General',
-          addedBy: 'Admin'
+          addedBy: expense.addedBy?.name || 'Unknown'
         }))
 
         reportData.summary.totalExpenses = expenses.reduce(
-          (sum: number, expense: any) => sum + Number(expense.amount), 
+          (sum: number, expense: any) => sum + Number(expense.amount),
           0
         )
       } catch (error) {
-        console.log('Expenses table not found or error:', error)
+        console.log('Error fetching expenses:', error)
         reportData.expenses = []
       }
     }
@@ -157,32 +144,28 @@ export async function POST(request: NextRequest) {
     // Fetch Emergency Requests
     if (includeRequests) {
       try {
-        const requests = await prisma.$queryRaw`
-          SELECT 
-            id,
-            created_at as date,
-            amount,
-            reason,
-            status,
-            urgency
-          FROM emergency_requests
-          WHERE created_at >= ${start} AND created_at <= ${end}
-          ORDER BY created_at DESC
-        ` as any[]
+        const requests = await prisma.emergencyRequest.findMany({
+          where: {
+            requestedAt: { gte: start, lte: end }
+          },
+          include: { requestedBy: { select: { name: true } } },
+          orderBy: { requestedAt: 'desc' }
+        })
 
         reportData.requests = requests.map((request: any) => ({
-          date: request.date,
+          date: request.requestedAt || request.createdAt,
           amount: Number(request.amount),
           reason: request.reason || 'No reason provided',
-          status: request.status || 'Pending',
-          urgency: request.urgency || 'Medium'
+          status: request.status || 'PENDING_DIRECTOR',
+          urgency: request.urgency || 'MEDIUM',
+          requestedBy: request.requestedBy?.name || 'Unknown'
         }))
 
         reportData.summary.totalEmergency = requests
-          .filter((r: any) => r.status === 'APPROVED')
+          .filter((r: any) => r.status === 'APPROVED_BY_DIRECTOR' || r.status === 'APPROVED_BY_FOUNDERS')
           .reduce((sum: number, r: any) => sum + Number(r.amount), 0)
       } catch (error) {
-        console.log('Emergency requests table not found or error:', error)
+        console.log('Error fetching emergency requests:', error)
         reportData.requests = []
       }
     }

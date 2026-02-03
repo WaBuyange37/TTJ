@@ -52,7 +52,6 @@ interface ReportData {
     endDate: string
     generatedAt: string
     generatedBy: string
-    organization?: string
   }
   summary: ReportSummary
   incomes: Income[]
@@ -131,7 +130,7 @@ export default function DirectorReportsPage() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `Them-To-Jesus-Report-${form.startDate}-to-${form.endDate}.pdf`
+        a.download = `Wakazi-Motors-Report-${form.startDate}-to-${form.endDate}.pdf`
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -168,12 +167,14 @@ export default function DirectorReportsPage() {
         let yPos = 20
 
         // Header
-        const orgName = data.metadata.organization || 'THEM TO JESUS NGO'
         doc.setFontSize(20)
-        doc.text(orgName, 105, yPos, { align: 'center' })
+        doc.text('Them To Jesus', 105, yPos, { align: 'center' })
+        yPos += 8
+        doc.setFontSize(12)
+        doc.text('Jesus is in Control', 105, yPos, { align: 'center' })
         yPos += 10
         doc.setFontSize(16)
-        doc.text('Financial Report', 105, yPos, { align: 'center' })
+        doc.text('TTJ Activity Report', 105, yPos, { align: 'center' })
         yPos += 10
         doc.setFontSize(12)
         doc.text(`Period: ${formatDate(data.metadata.startDate)} to ${formatDate(data.metadata.endDate)}`, 105, yPos, { align: 'center' })
@@ -302,8 +303,7 @@ export default function DirectorReportsPage() {
         }
 
         // Save PDF
-        const filenameOrg = (orgName || 'Them-To-Jesus').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\-]/g, '')
-        doc.save(`${filenameOrg}-Report-${form.startDate}-to-${form.endDate}.pdf`)
+        doc.save(`Wakazi-Motors-Report-${form.startDate}-to-${form.endDate}.pdf`)
 
         toast({
           title: 'Success!',
