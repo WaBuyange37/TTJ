@@ -303,7 +303,7 @@ export default function DirectorReportsPage() {
         }
 
         // Save PDF
-        doc.save(`Wakazi-Motors-Report-${form.startDate}-to-${form.endDate}.pdf`)
+        doc.save(`TTJ-report${form.startDate}-to-${form.endDate}.pdf`)
 
         toast({
           title: 'Success!',
