@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         },
         expenseItems: {
           orderBy: { createdAt: 'asc' }
-        }
+        } as any
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -104,13 +104,13 @@ export async function POST(req: NextRequest) {
             amount: item.amount,
             category: item.category,
           }))
-        }
-      },
+        } as any
+      } as any,
       include: {
         addedBy: {
           select: { id: true, name: true, email: true }
         },
-        expenseItems: true
+        expenseItems: true as any
       }
     })
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
           amount: expense.amount,
           description: expense.description,
           allocatedFrom: allocationInfo?.description || 'General funds',
-          itemCount: expense.expenseItems.length
+          itemCount: (expense as any).expenseItems?.length || 0
         }),
         performedById: session.user.id,
       }

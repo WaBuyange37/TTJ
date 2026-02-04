@@ -21,7 +21,7 @@ export async function PUT(
     const expense = await prisma.socialWorkerExpense.findUnique({
       where: { id },
       include: {
-        expenseItems: true,
+        expenseItems: true as any,
         addedBy: { select: { name: true, email: true } }
       }
     })
@@ -42,14 +42,15 @@ export async function PUT(
       include: {
         addedBy: { select: { name: true, email: true } },
         reviewedBy: { select: { name: true, email: true } },
-        expenseItems: true
+        expenseItems: true as any
       }
     })
 
     // If approved, create corresponding expense records for each item
     if (status === 'APPROVED') {
       // Create individual expense records for each item
-      for (const item of expense.expenseItems) {
+      const expenseItems = (expense as any).expenseItems || []
+      for (const item of expenseItems) {
         await prisma.expense.create({
           data: {
             amount: item.amount,
@@ -69,9 +70,9 @@ export async function PUT(
           entityId: expense.id,
           details: JSON.stringify({
             totalAmount: expense.amount,
-            itemCount: expense.expenseItems.length,
+            itemCount: expenseItems.length,
             approvedBy: session.user.name,
-            items: expense.expenseItems.map(item => ({
+            items: expenseItems.map((item: any) => ({
               description: item.description,
               amount: item.amount,
               category: item.category
@@ -82,6 +83,7 @@ export async function PUT(
       })
     } else if (status === 'REJECTED') {
       // Create audit log for rejection
+      const expenseItems = (expense as any).expenseItems || []
       await prisma.auditLog.create({
         data: {
           action: 'SOCIAL_WORKER_EXPENSE_REJECTED',
@@ -89,7 +91,7 @@ export async function PUT(
           entityId: expense.id,
           details: JSON.stringify({
             totalAmount: expense.amount,
-            itemCount: expense.expenseItems.length,
+            itemCount: expenseItems.length,
             rejectedBy: session.user.name,
             reason: notes || 'No reason provided'
           }),
@@ -102,6 +104,9 @@ export async function PUT(
 
   } catch (error) {
     console.error('Error updating expense:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
