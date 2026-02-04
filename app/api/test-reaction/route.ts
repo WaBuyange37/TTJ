@@ -8,7 +8,9 @@ export async function GET() {
     return NextResponse.json({ count, message: 'PostReaction model working' })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -25,6 +27,8 @@ export async function POST() {
     return NextResponse.json({ reaction, message: 'Reaction created successfully' })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }

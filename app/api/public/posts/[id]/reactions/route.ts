@@ -116,7 +116,7 @@ export async function POST(
     console.error('Error adding reaction:', error)
     return NextResponse.json({
       error: 'Failed to add reaction',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }

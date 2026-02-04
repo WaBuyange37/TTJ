@@ -19,7 +19,7 @@ interface ExpenseItem {
   description: string
   amount: number
   category: string
-  createdAt: string
+  createdAt?: string
 }
 
 interface SocialWorkerExpense {
