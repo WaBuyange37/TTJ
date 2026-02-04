@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,260 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String
+  password             String
+  role                 UserRole
+  country              String?
+  location             String?
+  phone                String?
+  avatar               String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  auditLogs            AuditLog[]
+  emergencyRequests    EmergencyRequest[]
+  expenses             Expense[]
+  girls                Girl[]
+  incomes              Income[]
+  sentMessages         Message[]             @relation("SentMessages")
+  posts                Post[]
+  socialWorkerExpenses SocialWorkerExpense[]
+  reviewedExpenses     SocialWorkerExpense[] @relation("ExpenseReviews")
+
+  @@map("users")
+}
+
+model Income {
+  id              String         @id @default(cuid())
+  amount          Float
+  date            DateTime       @default(now())
+  description     String
+  sender          String
+  category        IncomeCategory @default(MONTHLY_BUDGET)
+  addedById       String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  allocatedTo     String?
+  allocationNotes String?
+  addedBy         User           @relation(fields: [addedById], references: [id])
+
+  @@index([addedById])
+  @@index([date])
+  @@index([allocatedTo])
+  @@map("incomes")
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  amount      Float
+  date        DateTime        @default(now())
+  category    ExpenseCategory
+  description String
+  receipt     String?
+  addedById   String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  addedBy     User            @relation(fields: [addedById], references: [id])
+
+  @@index([addedById])
+  @@index([date])
+  @@index([category])
+  @@map("expenses")
+}
+
+model ExpenseItem {
+  id                    String              @id @default(cuid())
+  description           String
+  amount                Float
+  category              ExpenseCategory
+  socialWorkerExpenseId String
+  createdAt             DateTime            @default(now())
+  socialWorkerExpense   SocialWorkerExpense @relation(fields: [socialWorkerExpenseId], references: [id], onDelete: Cascade)
+
+  @@map("expense_items")
+}
+
+model SocialWorkerExpense {
+  id                 String          @id @default(cuid())
+  amount             Float
+  date               DateTime        @default(now())
+  category           ExpenseCategory? 
+  description        String
+  receipt            String?
+  allocatedFrom      String?
+  addedById          String
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  reviewNotes        String?
+  reviewedAt         DateTime?
+  reviewedById       String?
+  status             String          @default("PENDING")
+  supportingDocument String?
+  expenseItems       ExpenseItem[]
+  addedBy            User            @relation(fields: [addedById], references: [id])
+  reviewedBy         User?           @relation("ExpenseReviews", fields: [reviewedById], references: [id])
+
+  @@index([addedById])
+  @@index([date])
+  @@index([category])
+  @@index([allocatedFrom])
+  @@index([status])
+  @@index([reviewedById])
+  @@map("social_worker_expenses")
+}
+
+model EmergencyRequest {
+  id                 String           @id @default(cuid())
+  amount             Float
+  reason             String
+  urgency            UrgencyLevel
+  location           String
+  supportingDocument String?
+  status             RequestStatus    @default(PENDING_DIRECTOR)
+  requestedAt        DateTime         @default(now())
+  directorReviewedAt DateTime?
+  directorReviewedBy String?
+  founderReviewedAt  DateTime?
+  founderReviewedBy  String?
+  completedAt        DateTime?
+  completedBy        String?
+  directorNotes      String?
+  founderNotes       String?
+  completionNotes    String?
+  directorSignature  String?
+  requestedById      String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  requestedBy        User             @relation(fields: [requestedById], references: [id])
+  messages           RequestMessage[]
+
+  @@index([requestedById])
+  @@index([status])
+  @@index([requestedAt])
+  @@map("emergency_requests")
+}
+
+model RequestMessage {
+  id         String           @id @default(cuid())
+  content    String
+  senderId   String
+  senderName String
+  senderRole UserRole
+  requestId  String
+  createdAt  DateTime         @default(now())
+  request    EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("request_messages")
+}
+
+model ChatChannel {
+  id           String    @id @default(cuid())
+  name         String
+  isGroup      Boolean   @default(false)
+  participants String[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  messages     Message[]
+
+  @@map("chat_channels")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  content   String
+  senderId  String
+  channelId String
+  read      Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender    User        @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([channelId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model Girl {
+  id               String   @id @default(cuid())
+  title            String
+  content          String
+  images           String[] @default([])
+  editedByDirector Boolean  @default(false)
+  editedByFounder  Boolean  @default(false)
+  authorId         String
+  published        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  author           User     @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([published])
+  @@map("girls")
+}
+
+model Post {
+  id               String         @id @default(cuid())
+  title            String
+  content          String
+  images           String[]
+  authorId         String
+  published        Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  category         String         @default("mission")
+  editedByDirector Boolean        @default(false)
+  editedByFounder  Boolean        @default(false)
+  isPublic         Boolean        @default(false)
+  reactions        PostReaction[]
+  author           User           @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([isPublic])
+  @@index([category])
+  @@map("posts")
+}
+
+model PostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  reaction  String
+  ipAddress String?
+  userEmail String?
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, ipAddress])
+  @@unique([postId, userEmail])
+  @@index([postId])
+  @@index([reaction])
+  @@index([createdAt])
+  @@map("post_reactions")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String
+  entityType    String
+  entityId      String
+  details       String
+  performedById String
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+  performedBy   User     @relation(fields: [performedById], references: [id])
+
+  @@index([performedById])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 enum UserRole {
@@ -48,208 +299,4 @@ enum ExpenseCategory {
   UTILITIES
   EMERGENCY
   OTHER
-}
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      UserRole
-  country   String?
-  location  String?
-  phone     String?
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  sentMessages      Message[]          @relation("SentMessages")
-  emergencyRequests EmergencyRequest[]
-  incomes           Income[]
-  expenses          Expense[]
-  auditLogs         AuditLog[]
-  posts             Post[]
-  girls             Girl[]
-
-  @@map("users")
-}
-
-model Income {
-  id          String         @id @default(cuid())
-  amount      Float
-  date        DateTime       @default(now())
-  description String
-  sender      String // Which founder sent
-  category    IncomeCategory @default(MONTHLY_BUDGET)
-  addedById   String
-  addedBy     User           @relation(fields: [addedById], references: [id])
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  @@index([addedById])
-  @@index([date])
-  @@map("incomes")
-}
-
-model Expense {
-  id          String          @id @default(cuid())
-  amount      Float
-  date        DateTime        @default(now())
-  category    ExpenseCategory
-  description String
-  receipt     String? // URL to receipt image
-  addedById   String
-  addedBy     User            @relation(fields: [addedById], references: [id])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  @@index([addedById])
-  @@index([date])
-  @@index([category])
-  @@map("expenses")
-}
-
-model EmergencyRequest {
-  id                 String        @id @default(cuid())
-  amount             Float
-  reason             String
-  urgency            UrgencyLevel
-  location           String
-  supportingDocument String? // URL to image/file
-  status             RequestStatus @default(PENDING_DIRECTOR)
-
-  // Timestamps for workflow
-  requestedAt        DateTime  @default(now())
-  directorReviewedAt DateTime?
-  directorReviewedBy String?
-  founderReviewedAt  DateTime?
-  founderReviewedBy  String?
-  completedAt        DateTime?
-  completedBy        String?
-
-  // Notes
-  directorNotes   String?
-  founderNotes    String?
-  completionNotes String?
-
-  // Digital signature
-  directorSignature String?
-
-  requestedById String
-  requestedBy   User   @relation(fields: [requestedById], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  messages RequestMessage[]
-
-  @@index([requestedById])
-  @@index([status])
-  @@index([requestedAt])
-  @@map("emergency_requests")
-}
-
-model RequestMessage {
-  id         String           @id @default(cuid())
-  content    String
-  senderId   String
-  senderName String
-  senderRole UserRole
-  requestId  String
-  request    EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  createdAt  DateTime         @default(now())
-
-  @@index([requestId])
-  @@index([createdAt])
-  @@map("request_messages")
-}
-
-model ChatChannel {
-  id           String   @id @default(cuid())
-  name         String
-  isGroup      Boolean  @default(false)
-  participants String[] // Array of user IDs
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  messages Message[]
-
-  @@map("chat_channels")
-}
-
-model Message {
-  id        String      @id @default(cuid())
-  content   String
-  senderId  String
-  sender    User        @relation("SentMessages", fields: [senderId], references: [id])
-  channelId String
-  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  read      Boolean     @default(false)
-  createdAt DateTime    @default(now())
-
-  @@index([channelId])
-  @@index([senderId])
-  @@index([createdAt])
-  @@map("messages")
-}
-
-model Girl {
-  id               String   @id @default(cuid())
-  title            String
-  content          String
-  images           String[] @default([])
-  editedByDirector Boolean  @default(false)
-  editedByFounder  Boolean  @default(false)
-  authorId         String
-  author           User     @relation(fields: [authorId], references: [id])
-  published        Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([authorId])
-  @@index([createdAt])
-  @@index([published])
-  @@map("girls")
-}
-
-model Post {
-  id               String   @id @default(cuid())
-  title            String
-  content          String
-  images           String[] // Array of image URLs
-  category         String   @default("mission") // success_stories, girls_updates, mission, thank_you
-  isPublic         Boolean  @default(false) // true = visible on public website
-  editedByDirector Boolean  @default(false) // Director has reviewed
-  editedByFounder  Boolean  @default(false) // Founder has enhanced
-  authorId         String
-  author           User     @relation(fields: [authorId], references: [id])
-  published        Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([authorId])
-  @@index([createdAt])
-  @@index([isPublic])
-  @@index([category])
-  @@map("posts")
-}
-
-model AuditLog {
-  id            String   @id @default(cuid())
-  action        String // e.g., "APPROVED_EMERGENCY", "ADDED_INCOME"
-  entityType    String // e.g., "EmergencyRequest", "Income"
-  entityId      String
-  details       String // JSON string with additional details
-  performedById String
-  performedBy   User     @relation(fields: [performedById], references: [id])
-  ipAddress     String?
-  createdAt     DateTime @default(now())
-
-  @@index([performedById])
-  @@index([entityType, entityId])
-  @@index([createdAt])
-  @@map("audit_logs")
 }

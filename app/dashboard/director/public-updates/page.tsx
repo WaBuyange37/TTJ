@@ -12,8 +12,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
-import { Upload, X, FileText, Globe, Plus, Edit, Trash2 } from 'lucide-react'
+import { Upload, X, FileText, Globe, Plus, Edit, Trash2, Lock } from 'lucide-react'
 
 interface Post {
   id: string
@@ -29,7 +30,7 @@ export default function DirectorPublicUpdatesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { toast } = useToast()
-  
+
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -38,6 +39,7 @@ export default function DirectorPublicUpdatesPage() {
     title: '',
     content: '',
     category: 'mission',
+    isPublic: true,
     images: [] as string[]
   })
 
@@ -68,28 +70,67 @@ export default function DirectorPublicUpdatesPage() {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    setUploading(true)
-    const formData = new FormData()
-    Array.from(files).forEach(file => formData.append('files', file))
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
+    const maxSize = 5 * 1024 * 1024 // 5MB
 
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
 
-      if (response.ok) {
-        const data = await response.json()
-        setForm(prev => ({ ...prev, images: [...prev.images, ...data.urls] }))
-        toast({ title: 'Success!', description: 'Images uploaded' })
-      } else {
-        toast({ title: 'Error', description: 'Upload failed', variant: 'destructive' })
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Only JPEG, PNG, and PDF files are allowed',
+          variant: 'destructive',
+        })
+        continue
       }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
+
+      if (file.size > maxSize) {
+        toast({
+          title: 'File too large',
+          description: 'Maximum file size is 5MB',
+          variant: 'destructive',
+        })
+        continue
+      }
+
+      setUploading(true)
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setForm(prev => ({
+            ...prev,
+            images: [...prev.images, data.url]
+          }))
+          toast({
+            title: 'Success',
+            description: 'File uploaded successfully',
+          })
+        } else {
+          throw new Error('Upload failed')
+        }
+      } catch (error) {
+        toast({
+          title: 'Upload failed',
+          description: 'Failed to upload file. Please try again.',
+          variant: 'destructive',
+        })
+      } finally {
+        setUploading(false)
+      }
     }
+
+    // Reset input
+    e.target.value = ''
   }
 
   const removeImage = (index: number) => {
@@ -114,13 +155,13 @@ export default function DirectorPublicUpdatesPage() {
           content: form.content,
           category: form.category,
           images: form.images,
-          isPublic: true, // Always public for this page
+          isPublic: form.isPublic,
         }),
       })
 
       if (response.ok) {
         toast({ title: 'Success!', description: 'Post published' })
-        setForm({ title: '', content: '', category: 'mission', images: [] })
+        setForm({ title: '', content: '', category: 'mission', isPublic: true, images: [] })
         fetchPosts()
       } else {
         toast({ title: 'Error', description: 'Failed to publish', variant: 'destructive' })
@@ -245,8 +286,27 @@ export default function DirectorPublicUpdatesPage() {
               )}
             </div>
 
+            <div className="flex items-center space-x-2 p-4 border rounded-lg bg-gray-50">
+              <Checkbox
+                id="isPublic"
+                checked={form.isPublic}
+                onCheckedChange={(checked) => setForm({ ...form, isPublic: checked as boolean })}
+              />
+              <Label htmlFor="isPublic" className="text-sm font-medium">
+                Publish to public website
+              </Label>
+            </div>
+
             <Button type="submit" disabled={creating} className="w-full" size="lg">
-              {creating ? 'Publishing...' : <><Globe className="h-4 w-4 mr-2" />Publish Public Update</>}
+              {creating ? 'Publishing...' : (
+                <>
+                  {form.isPublic ? (
+                    <><Globe className="h-4 w-4 mr-2" />Publish Public Update</>
+                  ) : (
+                    <><FileText className="h-4 w-4 mr-2" />Create Internal Post</>
+                  )}
+                </>
+              )}
             </Button>
           </form>
         </CardContent>
@@ -255,13 +315,13 @@ export default function DirectorPublicUpdatesPage() {
       {/* Published Posts */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Published Updates</CardTitle>
+          <CardTitle>Public Updates</CardTitle>
           <CardDescription>Posts visible on the public website</CardDescription>
         </CardHeader>
         <CardContent>
           {posts.filter(p => p.isPublic).length === 0 ? (
             <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No public posts yet</p>
             </div>
           ) : (
@@ -273,6 +333,66 @@ export default function DirectorPublicUpdatesPage() {
                       <div className="flex items-center space-x-2 mb-2">
                         <Globe className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-green-600">Public</span>
+                        <span className="text-sm text-gray-500">•</span>
+                        <span className="text-sm text-gray-500">{post.category.replace('_', ' ')}</span>
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                      <p className="text-gray-600 line-clamp-2 mb-2">{post.content}</p>
+                      {post.images.length > 0 && (
+                        <div className="flex space-x-2 mb-2">
+                          {post.images.slice(0, 3).map((url, idx) => (
+                            <div key={idx} className="w-16 h-16 rounded border overflow-hidden">
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                          {post.images.length > 3 && (
+                            <div className="w-16 h-16 rounded border bg-gray-100 flex items-center justify-center text-sm text-gray-600">
+                              +{post.images.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm text-gray-500">
+                        Posted {new Date(post.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDelete(post.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Internal Posts */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Internal Posts</CardTitle>
+          <CardDescription>Posts visible only to staff and founders</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {posts.filter(p => !p.isPublic).length === 0 ? (
+            <div className="text-center py-12">
+              <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No internal posts yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {posts.filter(p => !p.isPublic).map((post) => (
+                <div key={post.id} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Lock className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-600">Internal</span>
                         <span className="text-sm text-gray-500">•</span>
                         <span className="text-sm text-gray-500">{post.category.replace('_', ' ')}</span>
                       </div>

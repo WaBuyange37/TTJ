@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
     // Fetch public posts
     const posts = await prisma.post.findMany({
       where: { isPublic: true },
-      include: { author: { select: { name: true, role: true } } },
+      include: {
+        author: { select: { name: true, role: true } }
+      },
     })
 
     // Fetch published girls entries (featured on homepage)

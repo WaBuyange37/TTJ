@@ -1,0 +1,16 @@
+{
+  "editor.fontSize": 14,
+  "editor.fontFamily": "JetBrains Mono, Fira Code, monospace",
+  "editor.fontLigatures": true,
+
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+
+  "files.autoSave": "afterDelay",
+
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  "editor.inlineSuggest.enabled": true,
+  "windsurf.ai.inlineCompletions": true,
+  "windsurf.ai.chat.enabled": true
+}

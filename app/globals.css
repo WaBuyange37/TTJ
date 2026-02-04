@@ -63,8 +63,104 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Remove excessive spacing globally - very aggressive */
+  .space-y-6>*+* {
+    @apply mt-1;
+  }
+
+  .space-y-8>*+* {
+    @apply mt-2;
+  }
+
+  .space-y-12>*+* {
+    @apply mt-3;
+  }
+
+  /* Remove card padding completely */
+  .card-content {
+    @apply p-0;
+  }
+
+  /* Remove section spacing */
+  .section-spacing {
+    @apply py-1;
+  }
+
+  /* Remove all margins from headings */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply mt-0 mb-1;
+  }
+
+  p {
+    @apply mb-1;
+  }
+
+  /* Remove default page margins */
+  html,
+  body {
+    @apply m-0 p-0;
+  }
+
+  /* Remove main container spacing */
+  main {
+    @apply p-0;
+  }
+
+  /* Remove dashboard page padding */
+  .dashboard-container {
+    @apply p-0;
+  }
+}
+
+@layer components {
+
+  /* Override default card padding */
+  .card {
+    @apply shadow-sm;
+  }
+
+  .card-content {
+    @apply p-2;
+  }
+
+  /* Remove spacing in grids */
+  .grid-gap-4>*+* {
+    @apply gap-1;
+  }
+
+  /* Remove padding in common containers */
+  .container {
+    @apply px-1;
+  }
+
+  /* Remove dialog padding */
+  .dialog-content {
+    @apply p-2;
+  }
+
+  /* Remove padding from dashboard pages */
+  .dashboard-page {
+    @apply p-1;
+  }
+
+  /* Remove padding from cards */
+  .card {
+    @apply p-2;
+  }
+
+  /* Remove spacing between sections */
+  .section {
+    @apply mb-1;
   }
 }
 

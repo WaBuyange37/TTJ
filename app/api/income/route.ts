@@ -10,6 +10,8 @@ const incomeSchema = z.object({
   sender: z.string().min(2),
   category: z.enum(['MONTHLY_BUDGET', 'DONOR_GIFT', 'OTHER']),
   date: z.string().datetime().optional(),
+  allocatedTo: z.string().optional(),
+  allocationNotes: z.string().optional(),
 })
 
 // GET - List all income (Director and Founders only)
@@ -54,9 +56,9 @@ export async function GET(req: NextRequest) {
       _sum: { amount: true }
     })
 
-    return NextResponse.json({ 
-      incomes, 
-      total: total._sum.amount || 0 
+    return NextResponse.json({
+      incomes,
+      total: total._sum.amount || 0
     })
   } catch (error) {
     console.error('Error fetching incomes:', error)
@@ -98,10 +100,12 @@ export async function POST(req: NextRequest) {
         action: 'INCOME_ADDED',
         entityType: 'Income',
         entityId: income.id,
-        details: JSON.stringify({ 
-          amount: income.amount, 
+        details: JSON.stringify({
+          amount: income.amount,
           category: income.category,
-          sender: income.sender 
+          sender: income.sender,
+          allocatedTo: income.allocatedTo,
+          allocationNotes: income.allocationNotes
         }),
         performedById: session.user.id,
       }

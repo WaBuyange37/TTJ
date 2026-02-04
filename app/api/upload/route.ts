@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,12 +46,18 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now()
     const randomString = Math.random().toString(36).substring(7)
     const fileExtension = file.name.split('.').pop()
-    const fileName = `${timestamp}-${randomString}.${fileExtension}`
-    const filePath = `uploads/${fileName}`
+    const fileName = `${timestamp}-${randomString}.${fileExtension}` 
+    const filePath = `uploads/${fileName}` 
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('Supabase is not configured')
+      return NextResponse.json({ error: 'Storage not configured' }, { status: 500 })
+    }
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
@@ -105,7 +113,13 @@ export async function DELETE(req: NextRequest) {
 
     // Extract file path from URL
     const urlParts = fileUrl.split('/')
-    const filePath = `uploads/${urlParts[urlParts.length - 1]}`
+    const filePath = `uploads/${urlParts[urlParts.length - 1]}` 
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('Supabase is not configured')
+      return NextResponse.json({ error: 'Storage not configured' }, { status: 500 })
+    }
 
     // Delete from Supabase Storage
     const { error } = await supabase.storage

@@ -57,7 +57,7 @@ async function main() {
   // Create Social Worker
   console.log('Creating social worker...')
   const worker = await prisma.user.upsert({
-    where: { email:'niyonicole2002@gmail.com' },
+    where: { email: 'niyonicole2002@gmail.com' },
     update: {},
     create: {
       email: 'niyonicole2002@gmail.com',
@@ -105,8 +105,8 @@ async function main() {
   console.log('\n💰 Sample Data Created:')
   console.log('- 1 Income entry (founder funds - Jan 2026)')
   console.log('- 32 Expense entries (Jan 2026 budget items)')
-  console.log('- 0 Emergency requests')
-  console.log('- 0 News posts')
+  console.log('- 3 Emergency requests')
+  console.log('- 5 News posts')
   console.log('- 2 Chat channels (with 2 starter messages)')
   console.log('- 2 Girl profiles (featured on home page)')
 
@@ -162,24 +162,152 @@ async function main() {
     ],
   })
 
+  // Create sample social worker expenses
+  console.log('Creating sample social worker expenses...')
+  await prisma.socialWorkerExpense.createMany({
+    data: [
+      {
+        amount: 5000,
+        description: 'Emergency medical supplies for Sarah - malaria treatment',
+        category: 'HEALTH',
+        date: new Date('2026-02-03'),
+        receipt: null,
+        addedById: worker.id,
+        status: 'PENDING'
+      },
+      {
+        amount: 8000,
+        description: 'School fees and uniforms for 2 girls',
+        category: 'SCHOOL',
+        date: new Date('2026-02-02'),
+        receipt: null,
+        addedById: worker.id,
+        status: 'APPROVED',
+        reviewedById: director.id,
+        reviewedAt: new Date('2026-02-03'),
+        reviewNotes: 'Approved - essential educational expenses for the girls'
+      },
+      {
+        amount: 3000,
+        description: 'Food supplies for emergency situation',
+        category: 'FOOD',
+        date: new Date('2026-02-01'),
+        receipt: null,
+        addedById: worker.id,
+        status: 'REJECTED',
+        reviewedById: director.id,
+        reviewedAt: new Date('2026-02-02'),
+        reviewNotes: 'Rejected - please use regular budget allocation for food supplies'
+      },
+      {
+        amount: 12000,
+        description: 'Transport costs for hospital visit - 3 girls',
+        category: 'TRANSPORT',
+        date: new Date('2026-02-04'),
+        receipt: null,
+        addedById: worker.id,
+        status: 'PENDING'
+      }
+    ]
+  })
 
+  // Create sample emergency requests
+  console.log('Creating sample emergency requests...')
+  await prisma.emergencyRequest.createMany({
+    data: [
+      {
+        amount: 15000,
+        reason: 'Emergency medical treatment for Sarah - severe malaria requiring hospitalization',
+        urgency: 'CRITICAL',
+        location: 'Kigali Hospital',
+        requestedById: worker.id,
+        status: 'PENDING_DIRECTOR'
+      },
+      {
+        amount: 8000,
+        reason: 'Emergency food supplies for 3 girls who ran out of basic necessities',
+        urgency: 'HIGH',
+        location: 'Muhanga Center',
+        requestedById: worker.id,
+        status: 'APPROVED_BY_DIRECTOR'
+      },
+      {
+        amount: 12000,
+        reason: 'Urgent school fees and supplies for 2 girls starting secondary school',
+        urgency: 'MEDIUM',
+        location: 'Kigali',
+        requestedById: worker.id,
+        status: 'COMPLETED'
+      }
+    ]
+  })
 
+  // Create sample posts
+  console.log('Creating sample posts...')
+  await prisma.post.createMany({
+    data: [
+      {
+        title: 'Welcome to Them To Jesus!',
+        content: 'We are so excited to share our journey with you. Together, we are transforming the lives of street girls and their babies in Kigali, Rwanda. Every day brings new hope, new challenges, and new opportunities to make a difference.',
+        images: [],
+        category: 'mission',
+        isPublic: true,
+        authorId: director.id,
+        published: true
+      },
+      {
+        title: 'Maria\'s Journey: From Streets to University',
+        content: 'When we first met Maria, she was living on the streets of Kigali, pregnant and alone. Today, she\'s a university student with a beautiful baby girl. Maria\'s transformation began when our outreach team found her and offered her shelter at our center. With counseling, medical care, and educational support, Maria not only completed her high school education but also gained admission to university to study social work. Her daughter, Grace, is now a healthy, happy two-year-old who brings joy to everyone at our center. Maria dreams of becoming a social worker to help other girls like herself. Your support makes stories like Maria\'s possible every day.',
+        images: [],
+        category: 'success_stories',
+        isPublic: true,
+        authorId: director.id,
+        published: true
+      },
+      {
+        title: 'New Baby Care Center Opening Soon!',
+        content: 'Exciting news! Thanks to your generous support, we\'re expanding our facilities to include a dedicated baby care center. This new wing will provide specialized care for the babies of the young mothers in our program. The center will feature: 24/7 medical supervision, a pediatric clinic, educational play areas, and a nutrition program. We\'ve already hired two experienced nurses and a pediatric specialist. Construction is 80% complete, and we expect to open by next month. This center will ensure that while mothers are in classes or vocational training, their babies receive the best possible care. Thank you for making this dream a reality!',
+        images: [],
+        category: 'mission',
+        isPublic: true,
+        authorId: director.id,
+        published: true
+      },
+      {
+        title: 'Thank You for Making 50 Dreams Come True',
+        content: 'This month, we celebrated an incredible milestone - we\'ve now helped 50 street girls and their babies find hope and new beginnings! Each of these 50 stories represents a life transformed, a family healed, and a future restored. From Sarah who now runs her own tailoring business, to Grace who\'s studying to become a teacher, to baby David who just took his first steps at our center - every success story is made possible by your support. Our anniversary celebration was filled with tears of joy as the girls shared their journeys. The mothers prepared a feast, the babies played together, and we all thanked God for the miracles we\'ve witnessed. Here\'s to 50 more dreams waiting to come true!',
+        images: [],
+        category: 'thank_you',
+        isPublic: true,
+        authorId: director.id,
+        published: true
+      },
+      {
+        title: 'Vocational Training Success Story',
+        content: 'We\'re thrilled to share that 12 of our girls have completed their vocational training programs! 6 girls graduated from tailoring school and are now starting their own businesses, 4 completed computer literacy courses and are working in local offices, and 2 finished culinary arts training and are now employed at local restaurants. Each of these young women is now financially independent and able to provide for their children. The ripple effect of their success extends to their families and communities. Your investment in their education is paying dividends that will last for generations!',
+        images: [],
+        category: 'success_stories',
+        isPublic: true,
+        authorId: worker.id,
+        published: true
+      }
+    ]
+  })
 
-
-  console.log('✅ Database seeded successfully!')
   console.log('\n📧 Login credentials (all passwords: password123):')
   console.log('─────────────────────────────────────────────────')
-  console.log('Founder 1:        founder1@themtojesus.org')
-  console.log('Founder 2:        founder2@themtojesus.org')
-  console.log('Director:         olivier@themtojesus.org')
-  console.log('Social Worker:    nicole@themtojesus.org')
+  console.log('Founder 1:        inshimyumukiza47@gmail.com')
+  console.log('Founder 2:        manuela.bader@posteo.de')
+  console.log('Director:         kwizeramugisha017@gmail.com')
+  console.log('Social Worker:    niyonicole2002@gmail.com')
   console.log('─────────────────────────────────────────────────')
   console.log('\n💰 Sample Data Created:')
   console.log('- 1 Income entry (founder funds - Jan 2026)')
   console.log('- 32 Expense entries (Jan 2026 budget items)')
-  console.log('- 0 Emergency requests')
-  console.log('- 0 News posts')
+  console.log('- 3 Emergency requests')
+  console.log('- 5 News posts')
   console.log('- 2 Chat channels (with 2 starter messages)')
+  console.log('- 2 Girl profiles (featured on home page)')
 }
 
 main()

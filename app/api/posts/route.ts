@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Create new post (Social Worker only)
+// POST - Create new post (Social Worker, Director, and Founder)
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'SOCIAL_WORKER') {
-      return NextResponse.json({ error: 'Only social workers can create posts' }, { status: 403 })
+    if (session.user.role !== 'SOCIAL_WORKER' && session.user.role !== 'COUNTRY_DIRECTOR' && session.user.role !== 'FOUNDER') {
+      return NextResponse.json({ error: 'Only authorized staff can create posts' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -86,7 +86,10 @@ export async function POST(req: NextRequest) {
         action: 'POST_CREATED',
         entityType: 'Post',
         entityId: post.id,
-        details: JSON.stringify({ title: post.title }),
+        details: JSON.stringify({
+          title: post.title,
+          authorRole: session.user.role
+        }),
         performedById: session.user.id,
       }
     })

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, FileText, MessageSquare, Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { AlertCircle, FileText, MessageSquare, Plus, Clock, CheckCircle, XCircle, Receipt } from 'lucide-react'
 import Link from 'next/link'
 
 interface EmergencyRequest {
@@ -49,19 +49,19 @@ export default function SocialWorkerDashboard() {
       if (response.ok) {
         const data = await response.json()
         setRequests(data.requests || [])
-        
+
         // Calculate stats
         const stats = {
-          pending: data.requests.filter((r: EmergencyRequest) => 
+          pending: data.requests.filter((r: EmergencyRequest) =>
             r.status === 'PENDING_DIRECTOR' || r.status === 'PENDING_FOUNDERS'
           ).length,
-          approved: data.requests.filter((r: EmergencyRequest) => 
+          approved: data.requests.filter((r: EmergencyRequest) =>
             r.status === 'APPROVED_BY_FOUNDERS'
           ).length,
-          rejected: data.requests.filter((r: EmergencyRequest) => 
+          rejected: data.requests.filter((r: EmergencyRequest) =>
             r.status.includes('REJECTED')
           ).length,
-          completed: data.requests.filter((r: EmergencyRequest) => 
+          completed: data.requests.filter((r: EmergencyRequest) =>
             r.status === 'COMPLETED'
           ).length,
         }
@@ -105,19 +105,19 @@ export default function SocialWorkerDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome back, {session?.user.name}!</h1>
-          <p className="text-gray-600 mt-1">Manage your emergency requests and share updates</p>
+          <p className="text-gray-600">Manage your emergency requests and share updates</p>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending</p>
@@ -131,7 +131,7 @@ export default function SocialWorkerDashboard() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Approved</p>
@@ -145,7 +145,7 @@ export default function SocialWorkerDashboard() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed</p>
@@ -159,7 +159,7 @@ export default function SocialWorkerDashboard() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Rejected</p>
@@ -180,7 +180,7 @@ export default function SocialWorkerDashboard() {
           <CardDescription>Common tasks and shortcuts</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
             <Link href="/dashboard/social-worker/requests/new">
               <Button className="w-full h-auto py-6 flex-col space-y-2" variant="default">
                 <AlertCircle className="h-8 w-8" />
@@ -194,6 +194,14 @@ export default function SocialWorkerDashboard() {
                 <FileText className="h-8 w-8" />
                 <span className="font-semibold">Post Update</span>
                 <span className="text-xs opacity-90">Share news and photos</span>
+              </Button>
+            </Link>
+
+            <Link href="/dashboard/social-worker/expenses">
+              <Button className="w-full h-auto py-6 flex-col space-y-2" variant="outline">
+                <Receipt className="h-8 w-8" />
+                <span className="font-semibold">Track Expenses</span>
+                <span className="text-xs opacity-90">Record allocated fund expenses</span>
               </Button>
             </Link>
 
@@ -233,10 +241,10 @@ export default function SocialWorkerDashboard() {
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {requests.slice(0, 5).map((request) => (
                 <Link key={request.id} href={`/dashboard/social-worker/requests/${request.id}`}>
-                  <div className="border rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer">
+                  <div className="border rounded-lg p-3 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">

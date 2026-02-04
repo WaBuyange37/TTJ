@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertCircle, 
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
   CheckCircle,
   Clock,
   Receipt,
@@ -106,22 +106,22 @@ export default function DirectorDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
           Welcome back, {session?.user.name}!
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-gray-600">
           Country Director Dashboard - Manage budget and approve requests
         </p>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Financial Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {/* Available Balance */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Available Balance</p>
@@ -138,7 +138,7 @@ export default function DirectorDashboard() {
 
         {/* Total Income */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Income</p>
@@ -155,7 +155,7 @@ export default function DirectorDashboard() {
 
         {/* Total Expenses */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Expenses</p>
@@ -172,7 +172,7 @@ export default function DirectorDashboard() {
 
         {/* Pending Requests */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Requests</p>
@@ -195,7 +195,7 @@ export default function DirectorDashboard() {
           <CardDescription>Common tasks and shortcuts</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
             <Link href="/dashboard/director/income">
               <Button className="w-full h-auto py-6 flex-col space-y-2" variant="default">
                 <Plus className="h-8 w-8" />
@@ -214,6 +214,13 @@ export default function DirectorDashboard() {
               <Button className="w-full h-auto py-6 flex-col space-y-2" variant="outline">
                 <AlertCircle className="h-8 w-8" />
                 <span className="font-semibold">Review Requests</span>
+              </Button>
+            </Link>
+
+            <Link href="/dashboard/director/expense-approvals">
+              <Button className="w-full h-auto py-6 flex-col space-y-2" variant="outline">
+                <CheckCircle className="h-8 w-8" />
+                <span className="font-semibold">Approve Expenses</span>
               </Button>
             </Link>
 
@@ -262,11 +269,10 @@ export default function DirectorDashboard() {
                 <DollarSign className="h-5 w-5 text-green-600" />
                 <p className="font-medium text-gray-700">Net</p>
               </div>
-              <p className={`text-2xl font-bold ${
-                stats.thisMonthIncome - stats.thisMonthExpenses >= 0 
-                  ? 'text-green-600' 
-                  : 'text-red-600'
-              }`}>
+              <p className={`text-2xl font-bold ${stats.thisMonthIncome - stats.thisMonthExpenses >= 0
+                ? 'text-green-600'
+                : 'text-red-600'
+                }`}>
                 {formatCurrency(stats.thisMonthIncome - stats.thisMonthExpenses)}
               </p>
             </div>
@@ -277,7 +283,7 @@ export default function DirectorDashboard() {
       {/* Alerts */}
       {stats.pendingRequests > 0 && (
         <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-6 w-6 text-yellow-600 mt-0.5" />
               <div className="flex-1">
@@ -300,7 +306,7 @@ export default function DirectorDashboard() {
 
       {stats.balance < 100000 && (
         <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-6 w-6 text-red-600 mt-0.5" />
               <div className="flex-1">

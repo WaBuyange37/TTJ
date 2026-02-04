@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) return null
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
 
 // File upload helper
 export async function uploadFile(
@@ -12,6 +14,12 @@ export async function uploadFile(
   folder: string = ''
 ): Promise<string | null> {
   try {
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return null
+    }
+
     const fileExt = file.name.split('.').pop()
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
     
@@ -28,11 +36,11 @@ export async function uploadFile(
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: urlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(fileName)
 
-    return publicUrl
+    return urlData.publicUrl
   } catch (error) {
     console.error('Upload error:', error)
     return null
@@ -42,6 +50,12 @@ export async function uploadFile(
 // Delete file helper
 export async function deleteFile(url: string, bucket: string): Promise<boolean> {
   try {
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return false
+    }
+
     // Extract file path from URL
     const urlParts = url.split(`/${bucket}/`)
     if (urlParts.length < 2) return false
